@@ -5,7 +5,7 @@ set(PROJECT_NAME GeoSharPlusCPP)
 # Set the Visual Studio toolset to the latest version
 if(MSVC)
     set(CMAKE_GENERATOR_TOOLSET "v145" CACHE STRING "Visual Studio toolset version" FORCE)
-    message(STATUS "Using Visual Studio 2026 (Insider) toolset: ${CMAKE_GENERATOR_TOOLSET}")
+    message(STATUS "Using Visual Studio 2026 toolset: ${CMAKE_GENERATOR_TOOLSET}")
 endif()
 
 # Check for VCPKG_ROOT environment variable
