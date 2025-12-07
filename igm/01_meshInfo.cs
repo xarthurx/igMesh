@@ -1,4 +1,6 @@
-﻿using GSP;
+using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using System;
 using System.IO;
@@ -83,8 +85,8 @@ public class igmInfoExporter : GH_Component {
   protected override void SolveInstance(IGH_DataAccess DA) {
     try {
       // Check if the native library is loaded before proceeding
-      if (!GSP.NativeBridge.IsNativeLibraryLoaded) {
-        string[] errors = GSP.NativeBridge.GetErrorMessages();
+      if (!igMeshBridge.IsNativeLibraryLoaded) {
+        string[] errors = igMeshBridge.GetErrorMessages();
         string errorMsg = string.Join("\n", errors);
         AddRuntimeMessage(GH_RuntimeMessageLevel.Error,
                           $"Native library not loaded. Check the following errors:\n{errorMsg}");
@@ -92,7 +94,7 @@ public class igmInfoExporter : GH_Component {
       } else {
         // Create an instance of BeingAliveLanguageInfo to access the non-static property
         string version = new igmInfo().AssemblyVersion;
-        string loadedPath = GSP.NativeBridge.LoadedLibraryPath;
+        string loadedPath = igMeshBridge.LoadedLibraryPath;
         string libName = Path.GetFileName(loadedPath);
 
         string infoText = $"Native library loaded successfully from: {loadedPath}\n" +
@@ -107,3 +109,4 @@ public class igmInfoExporter : GH_Component {
   }
 }
 }
+

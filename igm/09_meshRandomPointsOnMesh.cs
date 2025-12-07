@@ -1,4 +1,6 @@
 using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System;
@@ -193,3 +195,5 @@ public class IGM_random_points : GH_Component {
   public override Guid ComponentGuid => new Guid("5819dc11-ccff-41eb-b126-96c34911ddc1");
 }
 }
+
+

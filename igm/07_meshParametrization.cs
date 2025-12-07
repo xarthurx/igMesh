@@ -1,9 +1,11 @@
-﻿using Grasshopper.Kernel;
+using Grasshopper.Kernel;
 using System;
 using System.Linq;
 using System.Collections.Generic;
 using Rhino.Geometry;
 using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 
 namespace igm {
 public class IGM_paramHarmonic : GH_Component {
@@ -60,3 +62,5 @@ public class IGM_paramHarmonic : GH_Component {
   }
 }
 }  // namespace igm
+
+

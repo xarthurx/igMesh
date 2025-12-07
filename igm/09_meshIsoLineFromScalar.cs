@@ -1,4 +1,6 @@
-﻿using GSP;
+using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System;
@@ -103,3 +105,5 @@ public class IGM_isoline_scalar : GH_Component {
   }
 }
 }
+
+

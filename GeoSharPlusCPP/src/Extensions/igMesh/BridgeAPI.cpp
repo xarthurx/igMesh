@@ -1,4 +1,4 @@
-#include "GeoSharPlusCPP/API/BridgeAPI.h"
+#include "GeoSharPlusCPP/Extensions/igMesh/BridgeAPI.h"
 
 #include <algorithm>
 #include <iostream>

@@ -1,4 +1,6 @@
-﻿using GSP;
+using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using System;
 
@@ -170,3 +172,5 @@ public class IGM_gaussian_curvature : GH_Component {
   }
 }
 }
+
+

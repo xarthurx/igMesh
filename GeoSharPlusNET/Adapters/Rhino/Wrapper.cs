@@ -1,7 +1,7 @@
-﻿using Google.FlatBuffers;
+using Google.FlatBuffers;
 using Rhino.Geometry;
 
-namespace GSP {
+namespace GSP.Adapters.Rhino {
 public static class Wrapper {
 #region Point3d / Vector3d Operations
 

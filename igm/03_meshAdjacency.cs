@@ -1,4 +1,6 @@
-﻿using GSP;
+using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using Rhino.Geometry;
 using System;
@@ -169,7 +171,7 @@ public class IGM_tri_tri_adjacency : GH_Component {
     pManager.AddIntegerParameter("Adjacency T-T edge index",
                                  "TTI",
                                  "The item{{i}}(j) is the id of edge of the triangle TT(i,j) " +
-                                 "that is adjacent with triangle i.",
+                                     "that is adjacent with triangle i.",
                                  GH_ParamAccess.tree);
   }
 
