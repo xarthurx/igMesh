@@ -1,4 +1,6 @@
-﻿using GSP;
+using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using System;
 using System.Collections.Generic;
@@ -163,3 +165,5 @@ public class IGM_remap_FtoV : GH_Component {
 }
 
 }
+
+

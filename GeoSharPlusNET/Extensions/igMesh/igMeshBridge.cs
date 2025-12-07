@@ -1,10 +1,11 @@
 // using System;
 using System.Runtime.InteropServices;
 
-namespace GSP {
-public static class NativeBridge {
-  private const string WinLibName = @"GeoSharPlusCPP.dll";
-  private const string MacLibName = @"libGeoSharPlusCPP.dylib";
+using GSP.Core;
+
+namespace igMesh.Native {
+public static class igMeshBridge {
+  // Using GSP.Core.Platform for library names
 
   // System debugging functions for cross-platform support
 
@@ -76,10 +77,11 @@ public static class NativeBridge {
 
   [DllImport("libdl.dylib", EntryPoint = "dlerror")]
   private static extern IntPtr dlerror_mac();
-  
+
   private static string dlerror() {
     IntPtr ptr = dlerror_mac();
-    if (ptr == IntPtr.Zero) return string.Empty;
+    if (ptr == IntPtr.Zero)
+      return string.Empty;
     return Marshal.PtrToStringAnsi(ptr) ?? string.Empty;
   }
 
@@ -88,16 +90,18 @@ public static class NativeBridge {
   /// This prevents the entire assembly from failing to load if the native lib isn't found
   /// </summary>
   private static void InitializeNativeLibrary() {
-    if (_initializationAttempted) return;
-    
+    if (_initializationAttempted)
+      return;
+
     lock (_errorLog) {
-      if (_initializationAttempted) return;
+      if (_initializationAttempted)
+        return;
       _initializationAttempted = true;
-      
+
       try {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+        if (Platform.IsMac) {
           InitializeMacOSLibrary();
-        } else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+        } else if (Platform.IsWindows) {
           InitializeWindowsLibrary();
         } else {
           LogError("Unsupported operating system. Only Windows and macOS are supported.");
@@ -118,24 +122,24 @@ public static class NativeBridge {
       string assemblyLocation = System.Reflection.Assembly.GetExecutingAssembly().Location;
       string? assemblyDirectory = Path.GetDirectoryName(assemblyLocation);
       if (assemblyDirectory != null) {
-        searchLocations.Add(Path.Combine(assemblyDirectory, MacLibName));
+        searchLocations.Add(Path.Combine(assemblyDirectory, Platform.MacLib));
       }
 
       // 2. Try parent directory (sometimes needed for GH plugins)
       if (assemblyDirectory != null) {
         string? parentDir = Path.GetDirectoryName(assemblyDirectory);
         if (parentDir != null) {
-          searchLocations.Add(Path.Combine(parentDir, MacLibName));
+          searchLocations.Add(Path.Combine(parentDir, Platform.MacLib));
         }
       }
 
       // 3. Try current directory
-      searchLocations.Add(Path.Combine(Directory.GetCurrentDirectory(), MacLibName));
+      searchLocations.Add(Path.Combine(Directory.GetCurrentDirectory(), Platform.MacLib));
 
       // 4. Add standard system locations
-      searchLocations.Add(MacLibName);  // Default system search paths
+      searchLocations.Add(Platform.MacLib);  // Default system search paths
 
-      LogError($"Searching for {MacLibName} in the following locations:");
+      LogError($"Searching for {Platform.MacLib} in the following locations:");
       foreach (var path in searchLocations) {
         LogError($"- {path} (exists: {File.Exists(path)})");
       }
@@ -145,7 +149,7 @@ public static class NativeBridge {
       foreach (var libraryPath in searchLocations) {
         if (File.Exists(libraryPath)) {
           LogError($"Attempting to load native library from: {libraryPath}");
-          
+
           try {
             handle = dlopen_mac(libraryPath, 2);  // RTLD_NOW = 2
 
@@ -164,7 +168,8 @@ public static class NativeBridge {
         }
       }
 
-      LogError($"Failed to load native library from any location. Plugin functionality will be limited.");
+      LogError(
+          $"Failed to load native library from any location. Plugin functionality will be limited.");
     } catch (Exception ex) {
       LogError($"Exception while setting up native library path: {ex.Message}");
       LogError($"Stack trace: {ex.StackTrace}");
@@ -179,12 +184,12 @@ public static class NativeBridge {
       string dllPath = string.Empty;
 
       if (assemblyDirectory != null) {
-        dllPath = Path.Combine(assemblyDirectory, WinLibName);
+        dllPath = Path.Combine(assemblyDirectory, Platform.WindowsLib);
         if (!File.Exists(dllPath)) {
           // Try parent directory
           string? parentDir = Path.GetDirectoryName(assemblyDirectory);
           if (parentDir != null) {
-            dllPath = Path.Combine(parentDir, WinLibName);
+            dllPath = Path.Combine(parentDir, Platform.WindowsLib);
           }
         }
       }
@@ -194,7 +199,7 @@ public static class NativeBridge {
         _loadedLibraryPath = dllPath;
         LogError($"Successfully located native library at: {dllPath}");
       } else {
-        LogError($"Failed to locate native library {WinLibName} in expected locations.");
+        LogError($"Failed to locate native library {Platform.WindowsLib} in expected locations.");
         LogError($"Searched: {dllPath}");
       }
     } catch (Exception ex) {
@@ -209,13 +214,13 @@ public static class NativeBridge {
 
 #region Example Round Trip Functions
   // Double Array Round Trip
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "double_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   DoubleArrayRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "double_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
@@ -223,39 +228,41 @@ public static class NativeBridge {
 
   public static bool
   DoubleArrayRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return DoubleArrayRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return DoubleArrayRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Int Array Round Trip
-  [DllImport(
-      WinLibName, EntryPoint = "int_array_roundtrip", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "int_array_roundtrip",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IntArrayRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
-  [DllImport(
-      MacLibName, EntryPoint = "int_array_roundtrip", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "int_array_roundtrip",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IntArrayRoundTripMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IntArrayRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IntArrayRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IntArrayRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Int Pair Array Round Trip
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "int_pair_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IntPairArrayRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "int_pair_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
@@ -263,20 +270,20 @@ public static class NativeBridge {
 
   public static bool
   IntPairArrayRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IntPairArrayRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IntPairArrayRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Double Pair Array Round Trip
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "double_pair_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   DoublePairArrayRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "double_pair_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
@@ -284,59 +291,62 @@ public static class NativeBridge {
 
   public static bool
   DoublePairArrayRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return DoublePairArrayRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return DoublePairArrayRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Example: Point Round Trip -- Passing a Point3d to C++ and back
-  [DllImport(
-      WinLibName, EntryPoint = "point3d_roundtrip", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "point3d_roundtrip",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   Point3dRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "point3d_roundtrip", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "point3d_roundtrip",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   Point3dRoundTripMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
   public static bool
   Point3dRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return Point3dRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return Point3dRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Example: Point Array Round Trip -- Passing an array of Point3d to C++ and back
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "point3d_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   Point3dArrayRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "point3d_array_roundtrip",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   Point3dArrayRoundTripMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
   public static bool
   Point3dArrayRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return Point3dArrayRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return Point3dArrayRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
   }
   // Mesh Round Trip -- Passing a Mesh to C++ and back
-  [DllImport(
-      WinLibName, EntryPoint = "mesh_roundtrip", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "mesh_roundtrip",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   MeshRoundTripWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
   [DllImport(
-      MacLibName, EntryPoint = "mesh_roundtrip", CallingConvention = CallingConvention.Cdecl)]
+      Platform.MacLib, EntryPoint = "mesh_roundtrip", CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   MeshRoundTripMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
   public static bool
   MeshRoundTrip(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return MeshRoundTripWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return MeshRoundTripMac(inBuffer, inSize, out outBuffer, out outSize);
@@ -346,128 +356,139 @@ public static class NativeBridge {
 #region IG - MESH Functions
 
   // Mesh Centroid -- calculates the centroid of a mesh
-  [DllImport(WinLibName, EntryPoint = "IGM_centroid", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_centroid",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   MeshCentroidWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(MacLibName, EntryPoint = "IGM_centroid", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(
+      Platform.MacLib, EntryPoint = "IGM_centroid", CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   MeshCentroidMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   MeshCentroid(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return MeshCentroidWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return MeshCentroidMac(inBuffer, inSize, out outBuffer, out outSize);
   }
   // Load Mesh -- basic function to get a mesh from the native library
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_read_triangle_mesh",
              CallingConvention = CallingConvention.Cdecl,
              CharSet = CharSet.Ansi)]
   private static extern bool LoadMeshWin(string fileName, out IntPtr outBuffer, out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_read_triangle_mesh",
              CallingConvention = CallingConvention.Cdecl,
              CharSet = CharSet.Ansi)]
   private static extern bool LoadMeshMac(string fileName, out IntPtr outBuffer, out int outSize);
   public static bool LoadMesh(string fileName, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return LoadMeshWin(fileName, out outBuffer, out outSize);
     else
       return LoadMeshMac(fileName, out outBuffer, out outSize);
   }
 
   // Save Mesh -- basic function to export a mesh to local HDD
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_write_triangle_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool SaveMeshWin(byte[] inBuffer, int inSize, string fileName);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_write_triangle_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool SaveMeshMac(byte[] inBuffer, int inSize, string fileName);
   public static bool SaveMesh(byte[] inBuffer, int inSize, string fileName) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return SaveMeshWin(inBuffer, inSize, fileName);
     else
       return SaveMeshMac(inBuffer, inSize, fileName);
   }
 
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_barycenter", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_barycenter",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_barycenterWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
   [DllImport(
-      MacLibName, EntryPoint = "IGM_barycenter", CallingConvention = CallingConvention.Cdecl)]
+      Platform.MacLib, EntryPoint = "IGM_barycenter", CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_barycenterMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IGM_barycenter(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_barycenterWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_barycenterMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Vertex Normals
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_vert_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_vert_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_vert_normalsWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_vert_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_vert_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_vert_normalsMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IGM_vert_normals(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_vert_normalsWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_vert_normalsMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Face Normals
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_face_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_face_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_face_normalsWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_face_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_face_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_face_normalsMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IGM_face_normals(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_face_normalsWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_face_normalsMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Corner Normals - note the additional threshold_deg parameter
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_corner_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_corner_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_corner_normalsWin(
       byte[] inBuffer, int inSize, double threshold_deg, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_corner_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_corner_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_corner_normalsMac(
       byte[] inBuffer, int inSize, double threshold_deg, out IntPtr outBuffer, out int outSize);
 
   public static bool IGM_corner_normals(
       byte[] inBuffer, int inSize, double threshold_deg, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_corner_normalsWin(inBuffer, inSize, threshold_deg, out outBuffer, out outSize);
     else
       return IGM_corner_normalsMac(inBuffer, inSize, threshold_deg, out outBuffer, out outSize);
   }
 
   // Edge Normals - note the multiple output parameters
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_edge_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_edge_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_edge_normalsWin(byte[] inBuffer,
                                                  int inSize,
                                                  int weightingType,
@@ -477,8 +498,9 @@ public static class NativeBridge {
                                                  out int obsEI,
                                                  out IntPtr obEMAP,
                                                  out int obsEMAP);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_edge_normals", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_edge_normals",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_edge_normalsMac(byte[] inBuffer,
                                                  int inSize,
                                                  int weightingType,
@@ -498,7 +520,7 @@ public static class NativeBridge {
                                       out int obsEI,
                                       out IntPtr obEMAP,
                                       out int obsEMAP) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_edge_normalsWin(inBuffer,
                                  inSize,
                                  weightingType,
@@ -521,12 +543,12 @@ public static class NativeBridge {
   }
 
   // Vertex-Vertex Adjacency
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_vert_vert_adjacency",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_vert_vert_adjacencyWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_vert_vert_adjacency",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
@@ -534,14 +556,14 @@ public static class NativeBridge {
 
   public static bool
   IGM_vert_vert_adjacency(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_vert_vert_adjacencyWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_vert_vert_adjacencyMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Vertex-Triangle Adjacency
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_vert_tri_adjacency",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_vert_tri_adjacencyWin(byte[] inBuffer,
@@ -550,7 +572,7 @@ public static class NativeBridge {
                                                        out int outSizeVT,
                                                        out IntPtr outBufferVTI,
                                                        out int outSizeVTI);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_vert_tri_adjacency",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_vert_tri_adjacencyMac(byte[] inBuffer,
@@ -566,7 +588,7 @@ public static class NativeBridge {
                                             out int outSizeVT,
                                             out IntPtr outBufferVTI,
                                             out int outSizeVTI) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_vert_tri_adjacencyWin(
           inBuffer, inSize, out outBufferVT, out outSizeVT, out outBufferVTI, out outSizeVTI);
     else
@@ -575,7 +597,7 @@ public static class NativeBridge {
   }
 
   // Triangle-Triangle Adjacency
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_tri_tri_adjacency",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_tri_tri_adjacencyWin(byte[] inBuffer,
@@ -584,7 +606,7 @@ public static class NativeBridge {
                                                       out int outSizeTT,
                                                       out IntPtr outBufferTTI,
                                                       out int outSizeTTI);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_tri_tri_adjacency",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_tri_tri_adjacencyMac(byte[] inBuffer,
@@ -600,7 +622,7 @@ public static class NativeBridge {
                                            out int outSizeTT,
                                            out IntPtr outBufferTTI,
                                            out int outSizeTTI) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_tri_tri_adjacencyWin(
           inBuffer, inSize, out outBufferTT, out outSizeTT, out outBufferTTI, out outSizeTTI);
     else
@@ -609,34 +631,38 @@ public static class NativeBridge {
   }
 
   // Boundary Loop
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_boundary_loop", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_boundary_loop",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_boundary_loopWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_boundary_loop", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_boundary_loop",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_boundary_loopMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IGM_boundary_loop(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_boundary_loopWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_boundary_loopMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Boundary Facet
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_boundary_facet", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_boundary_facet",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_boundary_facetWin(byte[] inBuffer,
                                                    int inSize,
                                                    out IntPtr outBufferEL,
                                                    out int outSizeEL,
                                                    out IntPtr outBufferTL,
                                                    out int outSizeTL);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_boundary_facet", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_boundary_facet",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_boundary_facetMac(byte[] inBuffer,
                                                    int inSize,
                                                    out IntPtr outBufferEL,
@@ -650,7 +676,7 @@ public static class NativeBridge {
                                         out int outSizeEL,
                                         out IntPtr outBufferTL,
                                         out int outSizeTL) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_boundary_facetWin(
           inBuffer, inSize, out outBufferEL, out outSizeEL, out outBufferTL, out outSizeTL);
     else
@@ -659,8 +685,9 @@ public static class NativeBridge {
   }
 
   // Scalar Remap VtoF
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_remap_VtoF", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_remap_VtoF",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_remap_VtoFWin(byte[] inBufferMesh,
                                                int inSizeMesh,
                                                byte[] inBufferScalar,
@@ -668,7 +695,7 @@ public static class NativeBridge {
                                                out IntPtr outBuffer,
                                                out int outSize);
   [DllImport(
-      MacLibName, EntryPoint = "IGM_remap_VtoF", CallingConvention = CallingConvention.Cdecl)]
+      Platform.MacLib, EntryPoint = "IGM_remap_VtoF", CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_remap_VtoFMac(byte[] inBufferMesh,
                                                int inSizeMesh,
                                                byte[] inBufferScalar,
@@ -682,7 +709,7 @@ public static class NativeBridge {
                                     int inSizeScalar,
                                     out IntPtr outBuffer,
                                     out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_remap_VtoFWin(
           inBufferMesh, inSizeMesh, inBufferScalar, inSizeScalar, out outBuffer, out outSize);
     else
@@ -691,8 +718,9 @@ public static class NativeBridge {
   }
 
   // Scalar Remap FtoV
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_remap_FtoV", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_remap_FtoV",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_remap_FtoVWin(byte[] inBufferMesh,
                                                int inSizeMesh,
                                                byte[] inBufferScalar,
@@ -700,7 +728,7 @@ public static class NativeBridge {
                                                out IntPtr outBuffer,
                                                out int outSize);
   [DllImport(
-      MacLibName, EntryPoint = "IGM_remap_FtoV", CallingConvention = CallingConvention.Cdecl)]
+      Platform.MacLib, EntryPoint = "IGM_remap_FtoV", CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_remap_FtoVMac(byte[] inBufferMesh,
                                                int inSizeMesh,
                                                byte[] inBufferScalar,
@@ -714,7 +742,7 @@ public static class NativeBridge {
                                     int inSizeScalar,
                                     out IntPtr outBuffer,
                                     out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_remap_FtoVWin(
           inBufferMesh, inSizeMesh, inBufferScalar, inSizeScalar, out outBuffer, out outSize);
     else
@@ -723,7 +751,7 @@ public static class NativeBridge {
   }
 
   // Principal Curvature - note the multiple output parameters
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_principal_curvature",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_principal_curvatureWin(byte[] inBuffer,
@@ -737,7 +765,7 @@ public static class NativeBridge {
                                                         out int obsPV1,
                                                         out IntPtr obPV2,
                                                         out int obsPV2);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_principal_curvature",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_principal_curvatureMac(byte[] inBuffer,
@@ -763,7 +791,7 @@ public static class NativeBridge {
                                              out int obsPV1,
                                              out IntPtr obPV2,
                                              out int obsPV2) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_principal_curvatureWin(inBuffer,
                                         inSize,
                                         radius,
@@ -790,12 +818,12 @@ public static class NativeBridge {
   }
 
   // Gaussian Curvature
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_gaussian_curvature",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_gaussian_curvatureWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_gaussian_curvature",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
@@ -803,14 +831,14 @@ public static class NativeBridge {
 
   public static bool
   IGM_gaussian_curvature(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_gaussian_curvatureWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_gaussian_curvatureMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Fast Winding Number
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_fast_winding_number",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_fast_winding_numberWin(byte[] inBufferMesh,
@@ -819,7 +847,7 @@ public static class NativeBridge {
                                                         int inSizePoints,
                                                         out IntPtr outBuffer,
                                                         out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_fast_winding_number",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_fast_winding_numberMac(byte[] inBufferMesh,
@@ -835,7 +863,7 @@ public static class NativeBridge {
                                              int inSizePoints,
                                              out IntPtr outBuffer,
                                              out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_fast_winding_numberWin(
           inBufferMesh, inSizeMesh, inBufferPoints, inSizePoints, out outBuffer, out outSize);
     else
@@ -844,8 +872,9 @@ public static class NativeBridge {
   }
 
   // Signed Distance
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_signed_distance", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_signed_distance",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_signed_distanceWin(byte[] inBufferMesh,
                                                     int inSizeMesh,
                                                     byte[] inBufferPoints,
@@ -857,8 +886,9 @@ public static class NativeBridge {
                                                     out int outSizeFI,
                                                     out IntPtr outBufferCP,
                                                     out int outSizeCP);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_signed_distance", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_signed_distance",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_signed_distanceMac(byte[] inBufferMesh,
                                                     int inSizeMesh,
                                                     byte[] inBufferPoints,
@@ -882,7 +912,7 @@ public static class NativeBridge {
                                          out int outSizeFI,
                                          out IntPtr outBufferCP,
                                          out int outSizeCP) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_signed_distanceWin(inBufferMesh,
                                     inSizeMesh,
                                     inBufferPoints,
@@ -909,25 +939,27 @@ public static class NativeBridge {
   }
 
   // Quad Planarity
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_quad_planarity", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_quad_planarity",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_quad_planarityWin(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_quad_planarity", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_quad_planarity",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_quad_planarityMac(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IGM_quad_planarity(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_quad_planarityWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_quad_planarityMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Planarize Quad Mesh
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_planarize_quad_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_planarize_quad_meshWin(byte[] inBuffer,
@@ -936,7 +968,7 @@ public static class NativeBridge {
                                                         double threshold,
                                                         out IntPtr outBuffer,
                                                         out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_planarize_quad_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_planarize_quad_meshMac(byte[] inBuffer,
@@ -952,7 +984,7 @@ public static class NativeBridge {
                                              double threshold,
                                              out IntPtr outBuffer,
                                              out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_planarize_quad_meshWin(
           inBuffer, inSize, maxIter, threshold, out outBuffer, out outSize);
     else
@@ -961,8 +993,9 @@ public static class NativeBridge {
   }
 
   // Laplacian Scalar
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_laplacian_scalar", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_laplacian_scalar",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_laplacian_scalarWin(byte[] inBufferMesh,
                                                      int inSizeMesh,
                                                      byte[] inBufferIndices,
@@ -971,8 +1004,9 @@ public static class NativeBridge {
                                                      int inSizeValues,
                                                      out IntPtr outBuffer,
                                                      out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_laplacian_scalar", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_laplacian_scalar",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_laplacian_scalarMac(byte[] inBufferMesh,
                                                      int inSizeMesh,
                                                      byte[] inBufferIndices,
@@ -990,7 +1024,7 @@ public static class NativeBridge {
                                           int inSizeValues,
                                           out IntPtr outBuffer,
                                           out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_laplacian_scalarWin(inBufferMesh,
                                      inSizeMesh,
                                      inBufferIndices,
@@ -1011,32 +1045,34 @@ public static class NativeBridge {
   }
 
   // Harmonic Parametrization
-  [DllImport(
-      WinLibName, EntryPoint = "IGM_param_harmonic", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.WindowsLib,
+             EntryPoint = "IGM_param_harmonic",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_param_harmonicWin(byte[] inBuffer, int inSize, int k, out IntPtr outBuffer, out int outSize);
-  [DllImport(
-      MacLibName, EntryPoint = "IGM_param_harmonic", CallingConvention = CallingConvention.Cdecl)]
+  [DllImport(Platform.MacLib,
+             EntryPoint = "IGM_param_harmonic",
+             CallingConvention = CallingConvention.Cdecl)]
   private static extern bool
   IGM_param_harmonicMac(byte[] inBuffer, int inSize, int k, out IntPtr outBuffer, out int outSize);
 
   public static bool
   IGM_param_harmonic(byte[] inBuffer, int inSize, int k, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_param_harmonicWin(inBuffer, inSize, k, out outBuffer, out outSize);
     else
       return IGM_param_harmonicMac(inBuffer, inSize, k, out outBuffer, out outSize);
   }
 
   // Heat Geodesic Precompute
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_heat_geodesic_precompute",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_heat_geodesic_precomputeWin(byte[] inBuffer,
                                                              int inSize,
                                                              out IntPtr outBuffer,
                                                              out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_heat_geodesic_precompute",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_heat_geodesic_precomputeMac(byte[] inBuffer,
@@ -1046,14 +1082,14 @@ public static class NativeBridge {
 
   public static bool
   IGM_heat_geodesic_precompute(byte[] inBuffer, int inSize, out IntPtr outBuffer, out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_heat_geodesic_precomputeWin(inBuffer, inSize, out outBuffer, out outSize);
     else
       return IGM_heat_geodesic_precomputeMac(inBuffer, inSize, out outBuffer, out outSize);
   }
 
   // Heat Geodesic Solve
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_heat_geodesic_solve",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_heat_geodesic_solveWin(byte[] inBuffer,
@@ -1062,7 +1098,7 @@ public static class NativeBridge {
                                                         int inSizeSources,
                                                         out IntPtr outBuffer,
                                                         out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_heat_geodesic_solve",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_heat_geodesic_solveMac(byte[] inBuffer,
@@ -1078,7 +1114,7 @@ public static class NativeBridge {
                                              int inSizeSources,
                                              out IntPtr outBuffer,
                                              out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_heat_geodesic_solveWin(
           inBuffer, inSize, inBufferSources, inSizeSources, out outBuffer, out outSize);
     else
@@ -1087,7 +1123,7 @@ public static class NativeBridge {
   }
 
   // Random Points on Mesh
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_random_point_on_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_random_point_on_meshWin(byte[] inBuffer,
@@ -1097,7 +1133,7 @@ public static class NativeBridge {
                                                          out int outSize,
                                                          out IntPtr outBufferFI,
                                                          out int outSizeFI);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_random_point_on_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_random_point_on_meshMac(byte[] inBuffer,
@@ -1115,7 +1151,7 @@ public static class NativeBridge {
                                               out int outSize,
                                               out IntPtr outBufferFI,
                                               out int outSizeFI) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_random_point_on_meshWin(
           inBuffer, inSize, N, out outBuffer, out outSize, out outBufferFI, out outSizeFI);
     else
@@ -1124,7 +1160,7 @@ public static class NativeBridge {
   }
 
   // Blue Noise Sampling on Mesh
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_blue_noise_sampling_on_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_blue_noise_sampling_on_meshWin(byte[] inBuffer,
@@ -1134,7 +1170,7 @@ public static class NativeBridge {
                                                                 out int outSize,
                                                                 out IntPtr outBufferFI,
                                                                 out int outSizeFI);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_blue_noise_sampling_on_mesh",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_blue_noise_sampling_on_meshMac(byte[] inBuffer,
@@ -1152,7 +1188,7 @@ public static class NativeBridge {
                                                      out int outSize,
                                                      out IntPtr outBufferFI,
                                                      out int outSizeFI) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_blue_noise_sampling_on_meshWin(
           inBuffer, inSize, N, out outBuffer, out outSize, out outBufferFI, out outSizeFI);
     else
@@ -1162,7 +1198,7 @@ public static class NativeBridge {
 
   // Constrained Scalar (equivalent to IGM_laplacian_scalar - they appear to be the same
   // functionality)
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_constrained_scalar",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_constrained_scalarWin(byte[] inBufferMesh,
@@ -1173,7 +1209,7 @@ public static class NativeBridge {
                                                        int inSizeValues,
                                                        out IntPtr outBuffer,
                                                        out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_constrained_scalar",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_constrained_scalarMac(byte[] inBufferMesh,
@@ -1193,7 +1229,7 @@ public static class NativeBridge {
                                             int inSizeValues,
                                             out IntPtr outBuffer,
                                             out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_constrained_scalarWin(inBufferMesh,
                                        inSizeMesh,
                                        inBufferIndices,
@@ -1214,7 +1250,7 @@ public static class NativeBridge {
   }
 
   // Extract Isoline from Scalar
-  [DllImport(WinLibName,
+  [DllImport(Platform.WindowsLib,
              EntryPoint = "IGM_extract_isoline_from_scalar",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_extract_isoline_from_scalarWin(byte[] inBufferMesh,
@@ -1225,7 +1261,7 @@ public static class NativeBridge {
                                                                 int inSizeIsoValues,
                                                                 out IntPtr outBuffer,
                                                                 out int outSize);
-  [DllImport(MacLibName,
+  [DllImport(Platform.MacLib,
              EntryPoint = "IGM_extract_isoline_from_scalar",
              CallingConvention = CallingConvention.Cdecl)]
   private static extern bool IGM_extract_isoline_from_scalarMac(byte[] inBufferMesh,
@@ -1245,7 +1281,7 @@ public static class NativeBridge {
                                                      int inSizeIsoValues,
                                                      out IntPtr outBuffer,
                                                      out int outSize) {
-    if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+    if (Platform.IsWindows)
       return IGM_extract_isoline_from_scalarWin(inBufferMesh,
                                                 inSizeMesh,
                                                 inBufferScalar,

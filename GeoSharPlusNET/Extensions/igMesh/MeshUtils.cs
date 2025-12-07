@@ -1,7 +1,10 @@
-﻿using Rhino.Geometry;
+using Rhino.Geometry;
 using System.Runtime.InteropServices;
 
-namespace GSP {
+using GSP;
+using GSP.Adapters.Rhino;
+
+namespace igMesh.Native {
 public static class MeshUtils {
   private static Point3d Centroid(Mesh mesh) {
     // Serialize the mesh for calling into GeoSharPlusCPP
@@ -9,7 +12,7 @@ public static class MeshUtils {
     meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the C++ function to calculate centroid
-    var success = NativeBridge.MeshCentroid(
+    var success = igMeshBridge.MeshCentroid(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
     if (!success) {
       throw new InvalidOperationException("Failed to calculate mesh centroid in native code.");
@@ -55,7 +58,7 @@ public static class MeshUtils {
       return false;
     }
     // Load the mesh using GeoSharPlusCPP
-    var success = NativeBridge.LoadMesh(fileName, out IntPtr outBuffer, out int outSize);
+    var success = igMeshBridge.LoadMesh(fileName, out IntPtr outBuffer, out int outSize);
     if (!success || outBuffer == IntPtr.Zero) {
       return false;
     }
@@ -76,7 +79,7 @@ public static class MeshUtils {
     }
 
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
-    var success = NativeBridge.SaveMesh(meshBuffer, meshBuffer.Length, fileName);
+    var success = igMeshBridge.SaveMesh(meshBuffer, meshBuffer.Length, fileName);
 
     return success;
   }
@@ -92,7 +95,7 @@ public static class MeshUtils {
       throw new ArgumentNullException(nameof(rMesh));
 
     var meshBuffer = Wrapper.ToMeshBuffer(rMesh);
-    NativeBridge.IGM_barycenter(
+    igMeshBridge.IGM_barycenter(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
 
     // Copy the result from unmanaged memory to a managed byte array
@@ -118,7 +121,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_vert_normals(
+    var success = igMeshBridge.IGM_vert_normals(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -149,7 +152,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_face_normals(
+    var success = igMeshBridge.IGM_face_normals(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -183,7 +186,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_corner_normals(
+    var success = igMeshBridge.IGM_corner_normals(
         meshBuffer, meshBuffer.Length, thresholdDegrees, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -227,7 +230,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function with multiple outputs
-    var success = NativeBridge.IGM_edge_normals(meshBuffer,
+    var success = igMeshBridge.IGM_edge_normals(meshBuffer,
                                                 meshBuffer.Length,
                                                 weightingType,
                                                 out IntPtr enBuffer,
@@ -282,7 +285,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function to get vertex-vertex adjacency
-    var success = NativeBridge.IGM_vert_vert_adjacency(
+    var success = igMeshBridge.IGM_vert_vert_adjacency(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
     if (!success || outBuffer == IntPtr.Zero) {
       return new List<List<int>>();
@@ -312,7 +315,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function to get vertex-triangle adjacency
-    var success = NativeBridge.IGM_vert_tri_adjacency(meshBuffer,
+    var success = igMeshBridge.IGM_vert_tri_adjacency(meshBuffer,
                                                       meshBuffer.Length,
                                                       out IntPtr outBufferVT,
                                                       out int outSizeVT,
@@ -354,7 +357,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function to get triangle-triangle adjacency
-    var success = NativeBridge.IGM_tri_tri_adjacency(meshBuffer,
+    var success = igMeshBridge.IGM_tri_tri_adjacency(meshBuffer,
                                                      meshBuffer.Length,
                                                      out IntPtr outBufferTT,
                                                      out int outSizeTT,
@@ -395,7 +398,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function to get boundary loops
-    var success = NativeBridge.IGM_boundary_loop(
+    var success = igMeshBridge.IGM_boundary_loop(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
     if (!success || outBuffer == IntPtr.Zero) {
       return new List<List<int>>();
@@ -427,7 +430,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function to get boundary facets
-    var success = NativeBridge.IGM_boundary_facet(meshBuffer,
+    var success = igMeshBridge.IGM_boundary_facet(meshBuffer,
                                                   meshBuffer.Length,
                                                   out IntPtr outBufferEL,
                                                   out int outSizeEL,
@@ -487,7 +490,7 @@ public static class MeshUtils {
     var scalarBuffer = Wrapper.ToDoubleArrayBuffer(vertexScalars);
 
     // Call the native function
-    var success = NativeBridge.IGM_remap_VtoF(meshBuffer,
+    var success = igMeshBridge.IGM_remap_VtoF(meshBuffer,
                                               meshBuffer.Length,
                                               scalarBuffer,
                                               scalarBuffer.Length,
@@ -527,7 +530,7 @@ public static class MeshUtils {
     var scalarBuffer = Wrapper.ToDoubleArrayBuffer(faceScalars);
 
     // Call the native function
-    var success = NativeBridge.IGM_remap_FtoV(meshBuffer,
+    var success = igMeshBridge.IGM_remap_FtoV(meshBuffer,
                                               meshBuffer.Length,
                                               scalarBuffer,
                                               scalarBuffer.Length,
@@ -563,7 +566,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_principal_curvature(meshBuffer,
+    var success = igMeshBridge.IGM_principal_curvature(meshBuffer,
                                                        meshBuffer.Length,
                                                        radius,
                                                        out IntPtr obPD1,
@@ -620,7 +623,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_gaussian_curvature(
+    var success = igMeshBridge.IGM_gaussian_curvature(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -658,7 +661,7 @@ public static class MeshUtils {
     var pointsBuffer = Wrapper.ToPointArrayBuffer(queryVector3ds);
 
     // Call the native function
-    var success = NativeBridge.IGM_fast_winding_number(meshBuffer,
+    var success = igMeshBridge.IGM_fast_winding_number(meshBuffer,
                                                        meshBuffer.Length,
                                                        pointsBuffer,
                                                        pointsBuffer.Length,
@@ -702,7 +705,7 @@ public static class MeshUtils {
     var pointsBuffer = Wrapper.ToPointArrayBuffer(queryVector3ds);
 
     // Call the native function
-    var success = NativeBridge.IGM_signed_distance(meshBuffer,
+    var success = igMeshBridge.IGM_signed_distance(meshBuffer,
                                                    meshBuffer.Length,
                                                    pointsBuffer,
                                                    pointsBuffer.Length,
@@ -753,7 +756,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh, preserveQuads: true);
 
     // Call the native function
-    var success = NativeBridge.IGM_quad_planarity(
+    var success = igMeshBridge.IGM_quad_planarity(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -787,7 +790,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh, preserveQuads: true);
 
     // Call the native function
-    var success = NativeBridge.IGM_planarize_quad_mesh(meshBuffer,
+    var success = igMeshBridge.IGM_planarize_quad_mesh(meshBuffer,
                                                        meshBuffer.Length,
                                                        maxIterations,
                                                        threshold,
@@ -834,7 +837,7 @@ public static class MeshUtils {
     var valuesBuffer = Wrapper.ToDoubleArrayBuffer(constraintValues);
 
     // Call the native function
-    var success = NativeBridge.IGM_laplacian_scalar(meshBuffer,
+    var success = igMeshBridge.IGM_laplacian_scalar(meshBuffer,
                                                     meshBuffer.Length,
                                                     indicesBuffer,
                                                     indicesBuffer.Length,
@@ -875,7 +878,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_param_harmonic(
+    var success = igMeshBridge.IGM_param_harmonic(
         meshBuffer, meshBuffer.Length, k, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -908,7 +911,7 @@ public static class MeshUtils {
     var meshBuffer = Wrapper.ToMeshBuffer(mesh);
 
     // Call the native function
-    var success = NativeBridge.IGM_heat_geodesic_precompute(
+    var success = igMeshBridge.IGM_heat_geodesic_precompute(
         meshBuffer, meshBuffer.Length, out IntPtr outBuffer, out int outSize);
 
     if (!success || outBuffer == IntPtr.Zero) {
@@ -946,7 +949,7 @@ public static class MeshUtils {
     var sourcesBuffer = Wrapper.ToIntArrayBuffer(sourceVertices);
 
     // Call the native function
-    var success = NativeBridge.IGM_heat_geodesic_solve(handleBuffer,
+    var success = igMeshBridge.IGM_heat_geodesic_solve(handleBuffer,
                                                        handleBuffer.Length,
                                                        sourcesBuffer,
                                                        sourcesBuffer.Length,
@@ -990,7 +993,7 @@ public static class MeshUtils {
 
     if (method == 0) {
       // Random sampling
-      success = NativeBridge.IGM_random_point_on_mesh(meshBuffer,
+      success = igMeshBridge.IGM_random_point_on_mesh(meshBuffer,
                                                       meshBuffer.Length,
                                                       N,
                                                       out outBufferPoints,
@@ -999,7 +1002,7 @@ public static class MeshUtils {
                                                       out outSizeFI);
     } else {
       // Blue noise (uniform) sampling
-      success = NativeBridge.IGM_blue_noise_sampling_on_mesh(meshBuffer,
+      success = igMeshBridge.IGM_blue_noise_sampling_on_mesh(meshBuffer,
                                                              meshBuffer.Length,
                                                              N,
                                                              out outBufferPoints,
@@ -1055,7 +1058,7 @@ public static class MeshUtils {
     var valuesBuffer = Wrapper.ToDoubleArrayBuffer(constraintValues);
 
     // Call the native function
-    var success = NativeBridge.IGM_constrained_scalar(meshBuffer,
+    var success = igMeshBridge.IGM_constrained_scalar(meshBuffer,
                                                       meshBuffer.Length,
                                                       indicesBuffer,
                                                       indicesBuffer.Length,
@@ -1102,7 +1105,7 @@ public static class MeshUtils {
     var isoBuffer = Wrapper.ToDoubleArrayBuffer(isoValues);
 
     // Call the native function
-    var success = NativeBridge.IGM_extract_isoline_from_scalar(meshBuffer,
+    var success = igMeshBridge.IGM_extract_isoline_from_scalar(meshBuffer,
                                                                meshBuffer.Length,
                                                                scalarBuffer,
                                                                scalarBuffer.Length,
@@ -1397,4 +1400,4 @@ public static class MeshUtils {
     return sum;
   }
 }
-}  // namespace GSP
+}  // namespace igMesh.Native

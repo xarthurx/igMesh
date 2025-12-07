@@ -1,4 +1,6 @@
-﻿using GSP;
+using GSP;
+using GSP.Adapters.Rhino;
+using igMesh.Native;
 using Grasshopper.Kernel;
 using System;
 
@@ -40,3 +42,5 @@ public class IGM_barycenter : GH_Component {
   }
 }
 }
+
+
