@@ -1,6 +1,6 @@
 <!-- title img and links -->
 
-![](https://raw.githubusercontent.com/xarthurx/igMesh/refs/heads/main/graphics/title_img.jpg)
+![](https://raw.githubusercontent.com/xarthurx/igMesh/refs/heads/main/graphics/title_image.jpg)
 
 <h1 align="center">igMesh</h1>
 <div align="center">
