@@ -18,7 +18,7 @@ public class igmInfo : GH_AssemblyInfo {
   public override Guid Id => new Guid("9adf88b1-427d-4ce4-b72b-288d09821271");
   public override string AuthorName => "Dr. Zhao MA";
   public override string AuthorContact => "zhma@ethz.ch";
-  public override string Version => "0.5.9";
+  public override string Version => "0.6.0";
 
   public override GH_LibraryLicense License => GH_LibraryLicense.opensource;
 }
