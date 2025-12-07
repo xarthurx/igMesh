@@ -1,10 +1,10 @@
 name: Build and Release
 
 on:
+  tags:
+    - "v*"
   # push:
     # branches: [main]
-    tags:
-      - "v*"
 
 jobs:
   build-cpp:
