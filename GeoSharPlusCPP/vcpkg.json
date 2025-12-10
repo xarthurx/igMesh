@@ -1,9 +1,20 @@
 {
   "name": "geosharplus",
   "version": "0.1.0",
+  "builtin-baseline": "5dfa11cf88a8da8877b54fcbc5f6db78bc13f75a",
   "dependencies": [
     "eigen3",
     "flatbuffers",
     "libigl"
+  ],
+  "overrides": [
+    {
+      "name": "flatbuffers",
+      "version": "25.2.10"
+    },
+    {
+      "name": "libigl",
+      "version": "2.6.0"
+    }
   ]
 }
