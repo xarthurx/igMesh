@@ -30,7 +30,7 @@ jobs:
       CPP_PREBUILD_DIR: cppPrebuild
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -75,7 +75,7 @@ jobs:
       # Try to restore C++ build from cache
       - name: Cache C++ Build Artifacts
         id: cache-cpp
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ${{ env.CPP_Project }}/build
@@ -93,7 +93,7 @@ jobs:
         if: steps.cache-cpp.outputs.cache-hit != 'true'
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b # 2025-04-09 version
+          vcpkgGitCommitId: 5dfa11cf88a8da8877b54fcbc5f6db78bc13f75a # matches builtin-baseline in vcpkg.json
 
       # Configure and build using CMake (only if cache miss)
       - name: Configure and Build with CMake
@@ -229,7 +229,7 @@ jobs:
       YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -240,7 +240,7 @@ jobs:
         uses: NuGet/setup-nuget@v2
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
